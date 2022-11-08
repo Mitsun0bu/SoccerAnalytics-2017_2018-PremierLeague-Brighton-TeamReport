@@ -1,5 +1,13 @@
 # **************************************** #
 #                                          #
+#           ~~~ IMPORT ~~~                 #
+#                                          #
+# **************************************** #
+
+from statistics import mean
+
+# **************************************** #
+#                                          #
 #           ~~~ LOAD DATA ~~~              #
 #                                          #
 # **************************************** #
@@ -9,10 +17,19 @@ import json
 wyscoutFolderPath = "../../wyscout_data/"
 
 with open(wyscoutFolderPath + "competitions.json") as competitionsFile:
-    competitions = json.load(competitionsFile)
+    leagues = json.load(competitionsFile)
 
 with open(wyscoutFolderPath + "teams.json") as teamsFile:
     teams = json.load(teamsFile)
+
+with open(wyscoutFolderPath + "players.json") as playerFile:
+    players = json.load(playerFile)
+
+with open(wyscoutFolderPath + "matches/matches_England.json") as matchesFile:
+    matches = json.load(matchesFile)
+    
+with open(wyscoutFolderPath + "events/events_England.json") as eventsFile:
+    events = json.load(eventsFile)
 
 
 # **************************************** #
@@ -35,58 +52,162 @@ class WyscoutLeague:
     def __init__(self, country, name, season):
 
         self._country   = country
-        self._name      = name
-        self._season    = season
-        self._id        = self.getId(competitions, self._name)
-        self._teamIds   = self.getTeamIds(teams, self._country)
-        self._teamNames = self.getTeamNames(teams, self._country)
 
+        self._name      = name
+
+        self._season    = season
+
+        self._id        = 0 
+ 
+        self._teamIds   = []
+        self._teamNames = []
+        self.setTeamsInfo(teams)
+        
+        self._playerIds       = []
+        self._goalkeeperIds   = []
+        self._defenderIds     = []
+        self._midfielderIds   = []
+        self._forwardIds      = []
+        self._playerNames     = []
+        self._goalkeeperNames = []
+        self._defenderNames   = []
+        self._midfielderNames = []
+        self._forwardNames    = []
+        self.setPlayersInfo(players)
+        
+
+        # DEFENDERS-RELATED VARIABLE
+        self.defInterceptPerGame     = 0
+        self.defGroundDuelWinRate    = 0
+        self.defSmartPassSuccessRate = 0
+        self.setDefenderRelatedVariables(events)
+        
+        
     # **************************************** #
     #                                          #
     #           ~~~ CLASS METHOD ~~~           #
     #                                          #
     # **************************************** #
 
-    def getId(self, competitions, competitionName):
+    def setId(self, leagues):
         '''
         Parameters :
-            competitions   : list
-            competitonName : string
+            leagues : list
 
-        Returns    :
-            The ID of a given competition
+        Action    :
+            Set the ID of a league
         '''
-        for competition in competitions:
-            if competition['name'] == competitionName :
-                return competition['wyId']
+        for league in leagues:
+            if league['name'] == self._name :
+                self._id = league['wyId']
     
-    def getTeamIds(self, teams, country):
+    def setTeamsInfo(self, teams):
         '''
         Parameters :
             teams    : list
-            country  : string
 
-        Returns    :
-            The ID of all teams from a given country
+        Action     :
+            Set the IDs / Names of all teams playing in a league
         '''
-        teamIdList = []
+
         for team in teams:
-            if team['area']['name'] == country and team['name'] != "England":
-                teamIdList.append(team['wyId'])
-        return teamIdList
+            if team['area']['name'] == self._country and team['name'] != self._country:
+                self._teamIds.append(team['wyId'])
+                self._teamNames.append(team['name'])
     
-    def getTeamNames(self, teams, country):
+    def setPlayersInfo(self, players):
         '''
         Parameters :
-            teams    : list
-            country  : string
+            players  : list
 
-        Returns    :
-            The names of all teams from a given country
-        '''
-        teamNameList = []
-        for team in teams:
-            if team['area']['name'] == country and team['name'] != "England":
-                teamNameList.append(team['name'])
-        return teamNameList
+        Action     :
+            Set the different lists of player IDs / names,
+            in function of their role
+        '''        
+        for player in players:
+            if player['currentTeamId'] in self._teamIds:
+                self._playerIds.append(player['wyId'])
+                self._playerNames.append(player['shortName'])
+                if player['role']['name'] == 'Goalkeeper':
+                    self._goalkeeperIds.append(player['wyId'])
+                    self._goalkeeperNames.append(player['shortName'])
+                elif player['role']['name'] == 'Defender':
+                    self._defenderIds.append(player['wyId'])
+                    self._defenderNames.append(player['shortName'])
+                elif player['role']['name'] == 'Midfielder':
+                    self._midfielderIds.append(player['wyId'])
+                    self._midfielderNames.append(player['shortName'])
+                elif player['role']['name'] == 'Forward':
+                    self._forwardIds.append(player['wyId'])
+                    self._forwardNames.append(player['shortName'])
+
+    def setDefenderRelatedVariables(self, events):
+        
+        interceptTag               = 1401
+        wonTag                     = 703
+        accurateTag                = 1801
+
+        interceptPerGameList       = []
+        groundDuelWinRateList      = []
+        smartPassSuccessRateList   = []
+
+        for defenderId in self._defenderIds:
+            
+            gamesPlayedList        = []
+
+            interceptCount         = 0
+
+            groundDuelCount        = 0
+            wonGroundDuelCount     = 0
+
+            smartPassCount         = 0
+            accurateSmartPassCount = 0
+            
+            for event in events:
+                if event['playerId'] == defenderId:
+                    # CREATE A LIST OF GAMES PLAYED
+                    if event['matchId'] not in gamesPlayedList: 
+                        gamesPlayedList.append(event['matchId'])
+                    # COUNT THE NUMBER OF INTERCEPTIONS
+                    for tag in event['tags']:
+                        if tag['id'] == interceptTag:
+                            interceptCount = interceptCount + 1
+                    # COUNT THE NUMBER OF GROUND DEFENDING DUEL
+                    if event['subEventName'] == "Ground defending duel":
+                        groundDuelCount = groundDuelCount + 1
+                        # COUNT THE NUMBER OF WON GROUND DEFENDING DUEL
+                        for tag in event['tags']:
+                            if tag['id'] == wonTag:
+                                wonGroundDuelCount = wonGroundDuelCount + 1
+                    # COUNT THE NUMBER OF SMART PASSES
+                    elif event['subEventName'] == "Smart pass":
+                         smartPassCount = smartPassCount  + 1
+                         # COUNT THE NUMBER OF SUCCESSFUL SMART PASSES
+                         for tag in event['tags']:
+                             if tag['id'] == accurateTag:
+                                 accurateSmartPassCount = accurateSmartPassCount + 1
+            
+            if len(gamesPlayedList):
+                # ADD INTERCEPT PER GAME VALUE TO A LIST
+                interceptPerGame = round((interceptCount / len(gamesPlayedList)), 1)
+                interceptPerGameList.append(interceptPerGame)    
+                
+                # ADD GROUND DUEL SUCCESS RATE VALUE TO A LIST
+                if groundDuelCount > 0:
+                    groundDuelSuccessRate = round(((wonGroundDuelCount / groundDuelCount)  * 100), 1)
+                else:
+                    groundDuelSuccessRate = 0
+                groundDuelWinRateList.append(groundDuelSuccessRate)
+                
+                # ADD SMART PASS SUCCESS RATE VALUE TO A LIST
+                if smartPassCount > 0:
+                    smartPassSuccessRate = round(((accurateSmartPassCount / smartPassCount)  * 100), 1)
+                else:
+                    smartPassSuccessRate = 0
+                smartPassSuccessRateList.append(smartPassSuccessRate)
+
+            self.defInterceptPerGame     = round(mean(interceptPerGameList), 1)
+            self.defGroundDuelWinRate    = round(mean(groundDuelWinRateList), 1)
+            self.defSmartPassSuccessRate = round(mean(smartPassSuccessRateList), 1)
+    
     

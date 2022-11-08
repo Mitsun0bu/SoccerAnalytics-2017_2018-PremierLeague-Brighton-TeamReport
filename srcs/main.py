@@ -11,32 +11,6 @@ from WyscoutLeague import WyscoutLeague
 from WyscoutTeam   import WyscoutTeam
 # from classes.WyscoutPlayer import WyscoutPlayer
 
-
-# **************************************** #
-#                                          #
-#           ~~~ IMPORT JSONs FILES ~~~     #
-#                                          #
-# **************************************** #
-
-# import json
-
-# wyscoutFolderPath = "../../wyscout_data/"
-
-# with open(wyscoutFolderPath + "competitions.json") as competitionsFile:
-#     competitions = json.load(competitionsFile)
-
-# with open(wyscoutFolderPath + "teams.json") as teamsFile:
-#     teams = json.load(teamsFile)
-
-# with open(wyscoutFolderPath + "players.json") as playerFile:
-#     players = json.load(playerFile)
-
-# with open(wyscoutFolderPath + "matches/matches_England.json") as matchesFile:
-#     matches = json.load(matchesFile)
-    
-# with open(wyscoutFolderPath + "events/events_England.json") as eventsFile:
-#     events = json.load(eventsFile)
-    
 # **************************************** #
 #                                          #
 #           ~~~ INSTANTIATE LEAGUE ~~~     #
@@ -45,10 +19,9 @@ from WyscoutTeam   import WyscoutTeam
 
 leagueCountry = "England"
 leagueName    = "English first division"
-season        = "2017"
+seasonYear    = "2017"
 
-premierLeague = WyscoutLeague(leagueCountry, leagueName, season)
-print(premierLeague._teamNames)
+premierLeague = WyscoutLeague(leagueCountry, leagueName, seasonYear)
 
 # **************************************** #
 #                                          #
@@ -57,5 +30,5 @@ print(premierLeague._teamNames)
 # **************************************** #
 
 teamName = "Brighton & Hove Albion"
-brighton = WyscoutTeam(teamName)
-print(brighton._playerNames)
+brighton = WyscoutTeam(teamName, seasonYear)
+
